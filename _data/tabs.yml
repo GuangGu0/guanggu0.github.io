@@ -10,3 +10,8 @@
   name: diasble-test
   fp: tab/test1.html
   disabled: true
+
+- id: tab-welcome
+  name: Welcome Post
+  fp: tab/welcome.html
+  disabled: false

@@ -1,0 +1,30 @@
+{% assign p = site.posts | where: 'path', '_posts/2016-12-30-welcome-to-jekyll.markdown' | first %}
+{% if p %}
+<div class="site-container">
+  <div class="wrapper">
+    <div class="post-ribbon"></div>
+
+    <div class="container post-container">
+      <div class="post-page card-panel z-depth-2">
+        <div class="tab-section">
+          <div class="post-header">
+            <h1 class="post-title">{{ p.title }}</h1>
+            <p class="grey-text">{{ p.date | date: "%Y-%m-%d" }}</p>
+          </div>
+
+          <article class="post-content">
+            {{ p.excerpt }}
+          </article>
+
+          <div class="section">
+            <a class="btn" href="{{ p.url | prepend: site.baseurl }}">阅读全文</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% else %}
+<p>未找到文章 _posts/2016-12-30-welcome-to-jekyll.markdown</p>
+{% endif %}
