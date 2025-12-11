@@ -50,5 +50,21 @@ $(".button-collapse").off("click").sideNav();
 // Initialize collapsible (uncomment the line below if you use the dropdown variation)
 //$('.collapsible').collapsible();
 
+// tabs hover to activate
+$(document).ready(function(){
+  var $tabs = $('ul.tabs');
+  if ($tabs.length) {
+    $tabs.tabs(); // ensure initialized
+    $tabs.on('mouseenter', 'li.tab a', function(){
+      var $link = $(this);
+      if ($link.parent().hasClass('disabled')) {
+        return;
+      }
+      if (!$link.hasClass('active')) {
+        $link.click();
+      }
+    });
+  }
+});
 
 
