@@ -1,0 +1,311 @@
+---
+layout: page
+title: 核合成路径模拟1
+permalink: /nucle-path1/
+---
+
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .cell { transition: background-color 0.15s, transform 0.15s; }
+  .magic-line-v { border-right: 2px dashed rgba(16, 185, 129, 0.8) !important; }
+  .magic-line-h { border-bottom: 2px dashed rgba(16, 185, 129, 0.8) !important; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .equation-font { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+</style>
+
+<div class="bg-amber-50 font-sans text-stone-800 p-4 sm:p-8 min-h-screen flex flex-col items-center">
+  <div class="bg-white p-4 sm:p-8 rounded-xl w-full max-w-5xl shadow-xl border border-stone-200 flex flex-col items-center">
+        
+    <!-- Header -->
+    <div class="mb-6 text-center">
+      <h1 class="text-2xl font-bold flex items-center justify-center gap-2 text-stone-800">
+        <span class="text-orange-600 text-3xl">★</span>
+        核合成模拟器 <span class="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded ml-2 border border-orange-200">完整路径版 v2.5</span>
+      </h1>
+      <p class="text-stone-500 mt-2 text-sm max-w-xl mx-auto">
+        体验 <span class="text-blue-600 font-bold">r-过程</span> 中子流的狂暴：从连续俘获到 <span class="text-emerald-600 font-bold">幻数 N=20</span> 的顽强阻击。
+      </p>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-wrap gap-4 mb-6 justify-center w-full">
+      <button id="btn-rp" onclick="startSimulation('rp')" class="group flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm bg-white border border-red-200 text-red-700 hover:bg-red-50 hover:shadow-md hover:scale-105">
+        <span class="group-hover:animate-pulse">→</span> rp-过程 (X射线暴)
+      </button>
+      <button id="btn-r" onclick="startSimulation('r')" class="group flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 hover:shadow-md hover:scale-105">
+        <span class="group-hover:animate-spin">↗</span> r-过程 (完整版)
+      </button>
+      <button id="btn-s" onclick="startSimulation('s')" class="group flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:shadow-md hover:scale-105">
+        <span class="group-hover:animate-bounce">↓</span> s-过程 (慢中子俘获)
+      </button>
+      <button onclick="resetSimulation()" class="px-4 py-2 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 border border-stone-200 transition-colors shadow-sm" title="重置">
+        重置
+      </button>
+    </div>
+
+    <!-- Status & Equation Bar -->
+    <div class="w-full bg-stone-50 rounded-lg border border-stone-200 mb-4 flex flex-col overflow-hidden">
+      <div class="px-4 py-2 flex items-center justify-between border-b border-stone-200 bg-white/50">
+        <span id="status-text" class="font-mono font-medium text-sm text-stone-500">等待指令...</span>
+        <div class="flex gap-3 text-xs opacity-70">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>俘获</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-400"></span>衰变</span>
+        </div>
+      </div>
+      <div class="bg-stone-100 px-4 py-3 flex justify-center items-center min-h-[50px]">
+        <div id="equation-text" class="equation-font text-xl sm:text-2xl text-stone-800 transition-all duration-300 transform">
+          <span class="text-stone-400 text-base font-sans not-italic">点击上方按钮开始模拟</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid Container -->
+    <div class="relative bg-stone-100 p-2 sm:p-6 rounded-lg shadow-inner border border-stone-300 overflow-auto w-full flex items-center justify-center min-h-[550px]">
+      <div class="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-stone-400 tracking-widest pointer-events-none select-none">
+        质子数 Z →
+      </div>
+      <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-bold text-stone-400 tracking-widest pointer-events-none select-none">
+        中子数 N →
+      </div>
+
+      <div class="absolute top-2 right-2 bg-white/95 p-2 rounded border text-[10px] space-y-1 shadow-md z-20 backdrop-blur-sm select-none">
+        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-amber-400"></div> 俘获/移动</div>
+        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-blue-400"></div> 衰变</div>
+        <div class="flex items-center gap-2"><div class="w-3 h-1 bg-emerald-500"></div> 幻数线</div>
+      </div>
+
+      <div id="nuclide-grid" class="flex flex-col gap-[1px] ml-6 mb-6">
+        <!-- JS 生成格点 -->
+      </div>
+    </div>
+
+    <div class="mt-6 text-xs text-stone-500 max-w-2xl text-center leading-relaxed">
+      *注：演示用简化核素图区域，提示框跟随当前步骤。
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // --- Config ---
+  const MAX_Z = 22;
+  const MAX_N = 26;
+  const CELL_SIZE = 24;
+  const STEP_DELAY = 650;
+
+  // --- Paths ---
+  const rpPath = [
+    { z: 10, n: 10, type: 'move', desc: '种子核 (稳定)' },
+    { z: 11, n: 10, type: 'move', desc: 'p 俘获' },
+    { z: 12, n: 10, type: 'move', desc: 'p 俘获' },
+    { z: 13, n: 10, type: 'slow', desc: '质子滴线阻断' },
+    { z: 12, n: 11, type: 'decay', desc: 'β+ 衰变' },
+    { z: 13, n: 11, type: 'move', desc: '继续 p 俘获' },
+    { z: 14, n: 11, type: 'move', desc: '向上攀升' },
+    { z: 15, n: 11, type: 'slow', desc: '等待点' },
+    { z: 14, n: 12, type: 'decay', desc: 'β+ 衰变' },
+    { z: 15, n: 12, type: 'move', desc: '绕开阻断' },
+    { z: 16, n: 12, type: 'move', desc: '继续' },
+    { z: 17, n: 12, type: 'slow', desc: '滴线边界' },
+    { z: 16, n: 13, type: 'decay', desc: 'β+ 衰变' },
+    { z: 17, n: 13, type: 'move', desc: '继续攀升' },
+    { z: 18, n: 13, type: 'move', desc: '生成更重核' },
+  ];
+
+  const rPath = [
+    { z: 10, n: 10, type: 'move', desc: '种子核 (稳定)' },
+    { z: 10, n: 11, type: 'move', desc: 'n 俘获' },
+    { z: 10, n: 12, type: 'move', desc: '中子流增强' },
+    { z: 10, n: 13, type: 'move', desc: '继续俘获' },
+    { z: 10, n: 14, type: 'move', desc: '远离稳定线' },
+    { z: 10, n: 15, type: 'move', desc: '接近滴线' },
+    { z: 11, n: 14, type: 'decay', desc: 'β- 衰变' },
+    { z: 11, n: 15, type: 'move', desc: '再次俘获' },
+    { z: 11, n: 16, type: 'move', desc: '继续' },
+    { z: 11, n: 17, type: 'move', desc: '接近滴线' },
+    { z: 12, n: 16, type: 'decay', desc: 'β- 衰变' },
+    { z: 12, n: 17, type: 'move', desc: '继续俘获' },
+    { z: 12, n: 18, type: 'move', desc: '继续俘获' },
+  ];
+
+  const sPath = [
+    { z: 10, n: 10, type: 'move', desc: '种子核' },
+    { z: 10, n: 11, type: 'move', desc: '慢速 n 俘获' },
+    { z: 10, n: 12, type: 'slow', desc: '不稳定' },
+    { z: 11, n: 11, type: 'decay', desc: 'β- 衰变' },
+    { z: 11, n: 12, type: 'move', desc: '再俘获' },
+    { z: 11, n: 13, type: 'slow', desc: '不稳定' },
+    { z: 12, n: 12, type: 'decay', desc: 'β- 衰变' },
+    { z: 12, n: 13, type: 'move', desc: '沿稳定谷' },
+    { z: 12, n: 14, type: 'move', desc: '继续' },
+    { z: 13, n: 13, type: 'decay', desc: 'β- 衰变' },
+    { z: 13, n: 14, type: 'move', desc: '形成重同位素' },
+    { z: 13, n: 15, type: 'move', desc: '继续' },
+    { z: 14, n: 14, type: 'decay', desc: 'β- 衰变' },
+  ];
+
+  // --- State ---
+  let state = {
+    activeProcess: null,
+    stepIndex: 0,
+    pathHistory: [],
+    isPlaying: false,
+    timeoutId: null,
+  };
+
+  // --- Helpers ---
+  function getCellType(z, n) {
+    if (z === 0 || n === 0) return 'empty';
+    const isMagic = n === 20 || z === 8;
+    if (n > z + 6) return 'neutron-drip';
+    if (z > n + 1) return 'proton-drip';
+    return isMagic ? 'magic' : 'normal';
+  }
+
+  function createCell(z, n) {
+    const type = getCellType(z, n);
+    const div = document.createElement('div');
+    div.id = `cell-${z}-${n}`;
+    div.className = 'cell relative flex items-center justify-center text-[9px] sm:text-[10px] select-none border border-stone-300';
+    div.style.width = `${CELL_SIZE}px`;
+    div.style.height = `${CELL_SIZE}px`;
+
+    if (type === 'empty') {
+      div.classList.add('invisible');
+    } else {
+      if (type === 'magic') {
+        div.classList.add('magic-line-h');
+      }
+    }
+    return div;
+  }
+
+  function initGrid() {
+    const grid = document.getElementById('nuclide-grid');
+    grid.innerHTML = '';
+    for (let z = MAX_Z; z >= 0; z--) {
+      const row = document.createElement('div');
+      row.className = 'flex';
+      for (let n = 0; n <= MAX_N; n++) {
+        row.appendChild(createCell(z, n));
+      }
+      grid.appendChild(row);
+    }
+  }
+
+  function getCurrentPath() {
+    if (state.activeProcess === 'rp') return rpPath;
+    if (state.activeProcess === 'r') return rPath;
+    return sPath;
+  }
+
+  function updateButtonStyles(activeType) {
+    ['rp', 'r', 's'].forEach((t) => {
+      const btn = document.getElementById(`btn-${t}`);
+      if (t === activeType) {
+        btn.classList.add('ring-2', 'ring-offset-2', 'ring-offset-white', 'bg-opacity-100');
+        btn.classList.remove('opacity-50');
+      } else {
+        btn.classList.remove('ring-2', 'ring-offset-2', 'ring-offset-white');
+        if (activeType) btn.classList.add('opacity-50');
+        else btn.classList.remove('opacity-50');
+      }
+    });
+  }
+
+  function startSimulation(type) {
+    resetSimulation();
+    state.activeProcess = type;
+    state.isPlaying = true;
+    updateButtonStyles(type);
+    document.getElementById('status-text').innerText = '运行中...';
+    stepTick();
+  }
+
+  function stepTick() {
+    const path = getCurrentPath();
+    if (state.stepIndex >= path.length) {
+      document.getElementById('status-text').innerText = '完成';
+      state.isPlaying = false;
+      return;
+    }
+    const step = path[state.stepIndex];
+    state.pathHistory.push(step);
+    renderStep(step);
+    state.stepIndex += 1;
+    state.timeoutId = setTimeout(stepTick, STEP_DELAY);
+  }
+
+  function renderStep(step) {
+    const { z, n, type, desc } = step;
+    const isotopeLabel = `Z=${z}, N=${n}`;
+    const equationEl = document.getElementById('equation-text');
+    const statusEl = document.getElementById('status-text');
+
+    if (state.pathHistory.length > 1) {
+      const prev = state.pathHistory[state.pathHistory.length - 2];
+      const prevCell = document.getElementById(`cell-${prev.z}-${prev.n}`);
+      if (prevCell) {
+        prevCell.className = prevCell.className.replace(/ring-.*?scale.*?z-30/g, '');
+        prevCell.classList.add('bg-indigo-200', 'text-indigo-900', 'font-bold');
+        const oldTt = prevCell.querySelector('.tooltip');
+        if (oldTt) oldTt.remove();
+      }
+    }
+
+    const currentCell = document.getElementById(`cell-${z}-${n}`);
+    if (currentCell) {
+      currentCell.classList.add('z-30', 'scale-125', 'ring-2', 'shadow-lg');
+
+      if (type === 'slow') {
+        currentCell.classList.add('bg-blue-400', 'ring-blue-300', 'text-white');
+      } else if (type === 'decay') {
+        currentCell.classList.add('bg-amber-400', 'ring-amber-300', 'text-stone-900');
+      } else {
+        currentCell.classList.add('bg-amber-300', 'ring-amber-200', 'text-stone-900');
+      }
+
+      const tooltipHtml = `
+        <div class="tooltip absolute bottom-[120%] left-1/2 -translate-x-1/2 bg-white text-stone-700 px-3 py-2 rounded border border-stone-200 shadow-xl min-w-[140px] text-center pointer-events-none z-50">
+          <div class="text-lg font-serif font-bold leading-none mb-1 text-stone-800">${isotopeLabel}</div>
+          <div class="text-[10px] text-stone-500 border-t border-stone-200 pt-1 mt-1 leading-tight">${desc}</div>
+          <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
+        </div>
+      `;
+      currentCell.insertAdjacentHTML('beforeend', tooltipHtml);
+    }
+
+    equationEl.innerHTML = `<span class="text-base text-stone-700">${desc}</span>`;
+    statusEl.innerText = `进行中: ${isotopeLabel}`;
+  }
+
+  function resetSimulation() {
+    clearTimeout(state.timeoutId);
+    state = {
+      activeProcess: null,
+      stepIndex: 0,
+      pathHistory: [],
+      isPlaying: false,
+      timeoutId: null,
+    };
+
+    document.querySelectorAll('.cell').forEach((cell) => {
+      cell.classList.remove(
+        'bg-amber-400', 'bg-amber-300', 'bg-blue-400', 'bg-red-400',
+        'bg-indigo-200', 'text-white', 'text-stone-900', 'text-indigo-900',
+        'font-bold', 'ring-2', 'ring-amber-300', 'ring-amber-200', 'ring-blue-300',
+        'scale-125', 'z-30', 'shadow-lg'
+      );
+      const tt = cell.querySelector('.tooltip');
+      if (tt) tt.remove();
+    });
+
+    updateButtonStyles(null);
+    document.getElementById('status-text').innerText = '就绪';
+    document.getElementById('equation-text').innerHTML = '<span class="text-stone-400 text-base font-sans not-italic">点击上方按钮开始模拟</span>';
+  }
+
+  initGrid();
+</script>
