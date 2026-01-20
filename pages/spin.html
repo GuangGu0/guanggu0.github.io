@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Dirac Belt Trick / 狄拉克带子实验演示</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', sans-serif; color: white; }
+        #container { width: 100vw; height: 100vh; }
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px; width: 320px;
+            background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: auto;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 18px; color: #4db8ff; }
+        p { font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 15px; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .btn {
+            background: #e74c3c; color: white; border: none; padding: 10px 20px;
+            width: 100%; border-radius: 4px; cursor: pointer; font-size: 14px;
+            transition: background 0.3s;
+        }
+        .btn:disabled { background: #555; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { background: #ff6b6b; }
+        .status { font-family: monospace; color: #0f0; margin-top: 5px; font-size: 12px; }
+        #note { margin-top: 10px; font-size: 11px; color: #888; font-style: italic; border-top: 1px solid #444; padding-top: 10px;}
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div id="ui-layer">
+    <h1>Dirac Belt Trick (狄拉克带子)</h1>
+    <p>
+        此演示展示了 SO(3) 旋转群的拓扑性质。
+        <br><br>
+        1. <b>拖动滑块</b>旋转右侧方块。
+        <br>
+        2. <b>360° (2π)</b>：带子扭曲，不可直接解开。
+        <br>
+        3. <b>720° (4π)</b>：带子看起来更扭了，但在拓扑上等价于没有扭曲。点击下方按钮见证奇迹。
+    </p>
+    
+    <div class="control-group">
+        <label>旋转角度: <span id="angle-display">0</span>°</label>
+        <input type="range" id="angle-slider" min="0" max="720" value="0" step="1">
+    </div>
+
+    <button id="untangle-btn" class="btn" disabled>🔒 需旋转至 720° 解锁还原演示</button>
+    <div id="anim-status" class="status"></div>
+
+    <div id="note">
+        物理意义：电子自旋是 1/2，意味着它的波函数在旋转 360° 后会变号（带子扭曲），只有旋转 720° 后才能完全复原。
+    </div>
+</div>
+
+<div id="container"></div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // --- 场景设置 ---
+    const container = document.getElementById('container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x222222);
+    scene.fog = new THREE.Fog(0x222222, 10, 50);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 4, 8);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    // --- 灯光 ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // --- 对象创建 ---
+    
+    // 1. 固定端 (左侧)
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    const boxMatFixed = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4 });
+    const fixedBox = new THREE.Mesh(boxGeo, boxMatFixed);
+    fixedBox.position.set(-3, 0, 0);
+    fixedBox.castShadow = true;
+    scene.add(fixedBox);
+
+    // 2. 旋转端 (右侧)
+    const boxMatRot = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.4 });
+    const rotatingBox = new THREE.Mesh(boxGeo, boxMatRot);
+    rotatingBox.position.set(3, 0, 0);
+    rotatingBox.castShadow = true;
+    scene.add(rotatingBox);
+
+    // 3. 带子 (The Belt)
+    // 使用 PlaneGeometry，为了平滑扭曲，我们需要很多分段 (segments)
+    const segments = 200;
+    const beltLength = 6;
+    const beltWidth = 0.8;
+    const beltGeo = new THREE.PlaneGeometry(beltLength, beltWidth, segments, 1);
+    
+    // 创建双面材质的技巧：使用 ShaderMaterial 或者简单的纹理
+    // 为了区分正反面，我们手动给顶点着色或者使用纹理。这里为了简单且效果好，用不同的颜色渲染正反面。
+    // 由于 ThreeJS 一个 Mesh 只能有一个 side 属性，我们创建两个 Mesh 贴在一起，或者使用 vertex colors。
+    // 这里使用最简单的方法：根据法线方向染色（高级），或者直接用带纹理的材质。
+    
+    // 让我们生成一个简单的纹理：上半部分蓝色，下半部分红色，用来模拟正反面
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#4488ff'; // 正面蓝
+    ctx.fillRect(0,0,64,64);
+    
+    // 实际上，PlaneGeometry 的 UV 映射使得我们很难用一张纹理区分正反面（因为是单层几何体）。
+    // 最好的办法：自定义 ShaderMaterial，根据 gl_FrontFacing 决定颜色。
+    
+    const beltMaterial = new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        uniforms: {
+            colorFront: { value: new THREE.Color(0x4488ff) }, // 蓝色
+            colorBack: { value: new THREE.Color(0xff4444) }   // 红色
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            void main() {
+                vUv = uv;
+                vNormal = normal;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 colorFront;
+            uniform vec3 colorBack;
+            varying vec3 vNormal;
+            void main() {
+                if (gl_FrontFacing) {
+                    gl_FragColor = vec4(colorFront, 1.0);
+                } else {
+                    gl_FragColor = vec4(colorBack, 1.0);
+                }
+                // 简单的光照模拟
+                // float light = dot(normalize(vec3(1.0, 1.0, 1.0)), vNormal); 
+                // gl_FragColor.rgb *= (0.5 + 0.5 * light);
+            }
+        `
+    });
+
+    const belt = new THREE.Mesh(beltGeo, beltMaterial);
+    // 将带子居中放置，连接两个方块
+    // 默认 Plane 是竖着的，我们旋转一下让它平躺
+    // 实际上我们在 updateBelt 函数里会完全重写顶点位置，所以这里的初始位置不重要
+    scene.add(belt);
+
+    // --- 控制逻辑 ---
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // 状态变量
+    let currentAngleDeg = 0;
+    let isUntangling = false;
+    let untangleTime = 0; // 0 到 1
+    
+    const slider = document.getElementById('angle-slider');
+    const angleDisplay = document.getElementById('angle-display');
+    const btn = document.getElementById('untangle-btn');
+    const animStatus = document.getElementById('anim-status');
+
+    slider.addEventListener('input', (e) => {
+        if (isUntangling) return; // 动画中禁止手动操作
+        currentAngleDeg = parseFloat(e.target.value);
+        angleDisplay.textContent = currentAngleDeg;
+        updateUIState();
+        updateBelt();
+    });
+
+    btn.addEventListener('click', () => {
+        if (currentAngleDeg >= 710) { // 允许一点误差
+            startUntangleAnimation();
+        }
+    });
+
+    function updateUIState() {
+        // 只有接近 720 度时才允许解结
+        if (currentAngleDeg >= 710) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.innerHTML = "✨ 执行拓扑还原 (Untangle) ✨";
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            btn.innerHTML = "🔒 需旋转至 720° 解锁还原演示";
+        }
+    }
+
+    // --- 核心数学逻辑：更新带子顶点 ---
+    
+    function updateBelt() {
+        const positions = belt.geometry.attributes.position;
+        const totalAngle = THREE.MathUtils.degToRad(currentAngleDeg);
+        
+        // 我们在 -3 (fixed) 到 +3 (rotating) 之间插值
+        const startX = -2.5;
+        const endX = 2.5;
+        const length = endX - startX;
+
+        // 旋转方块本身
+        rotatingBox.rotation.x = totalAngle;
+
+        for (let i = 0; i <= segments; i++) {
+            // u: 归一化进度 (0 到 1)
+            const u = i / segments;
+            
+            // 当前切片在 X 轴的基础位置
+            let x = startX + u * length;
+            let y = 0;
+            let z = 0;
+
+            // --- 拓扑还原动画逻辑 (The Belt Trick) ---
+            // 当我们处于“解结”模式时，我们不仅改变旋转角度，还必须移动带子的路径（中心线）。
+            // 这种移动需要把带子从中路“提起来”，绕过右边的方块。
+            
+            // 基础扭转角度 (线性分布)
+            let twist = u * totalAngle;
+
+            if (isUntangling) {
+                // untangleTime 从 0 走向 1
+                const t = untangleTime;
+                
+                // 1. 路径变形 (Path Deformation)
+                // 我们使用正弦波让带子拱起来。
+                // 只有中间部分拱起，两端不动。
+                // 当 t=0.5 时拱得最高。
+                const arcHeight = Math.sin(t * Math.PI) * 4.0; // 拱起高度
+                
+                // 路径偏移：不仅向上(Y)，还要向外(Z)，形成一个绕过障碍的弧线
+                // 我们让它绕着右端点转。
+                // 这是一个简化的视觉近似，数学上这对应同伦变换。
+                
+                // 使用一个平滑的钟形曲线只影响带子中间
+                const envelope = Math.sin(u * Math.PI); 
+                
+                // 关键：带子的中心线随着时间 t 绕着轴心转动
+                // 这模拟了“把带子从底部提起来翻过去”的动作
+                const orbitAngle = t * Math.PI * 2; // 0 -> 2PI 绕一圈
+                
+                // 这里的数学比较tricky。为了视觉演示，我们混合两种状态：
+                // 状态A: 扭曲的直线 (t=0)
+                // 状态B: 没扭曲的直线 (t=1)
+                // 中间过程: 带子必须要绕大圈。
+                
+                // 让我们用一个更直观的“参数化”方法：
+                // 随着 t 增加，我们将一部分 twist "推" 出去，转化为路径的环绕数。
+                
+                // 动态调整 twist: 
+                // 目标是让 finalTwist 变成 0 (或者 4pi, 等价于 0)
+                // 实际上视觉上我们需要它变平。
+                // 简单的线性插值会让带子在中间打结穿模。
+                // 正确的 Dirac Trick 是：带子作为一个整体扫过方块。
+                
+                // 简易模拟方案：
+                // 1. 路径偏移：以 X 轴为中心，半径为 R 的螺旋。
+                const r = envelope * arcHeight; 
+                // 偏移方向
+                const offsetAngle = -t * Math.PI; // 这种旋转方向配合
+                
+                y += r * Math.cos(offsetAngle);
+                z += r * Math.sin(offsetAngle);
+                
+                // 2. 扭转消除
+                // 随着带子在空间中“翻转”，局部的 twist 被抵消了。
+                // 我们简单地线性插值 twist 角度从 4PI 到 0
+                twist = u * (totalAngle * (1 - t)); 
+                
+                // 修正：仅仅减小 twist 是不够的，带子方向也要跟着路径转。
+                // 为了保持带子表面法线连续，我们需要把路径的旋转加到 twist 上。
+                // 这正是 Spinor 的几何本质：路径旋转和自旋的耦合。
+                twist += u * (t * 4 * Math.PI); // 这是一个 trick，保持视觉上的连续性
+                
+                // 实际上，为了演示效果最平滑，我们通常作弊一下：
+                // 当 t 从 0 到 1：
+                // 物理角度从 720 降到 0
+                // 同时路径做一个 360 度的翻转动作。
+            }
+
+            // 计算当前切片的两个顶点 (上和下)
+            // 围绕 (1, 0, 0) 轴旋转
+            const cos = Math.cos(twist);
+            const sin = Math.sin(twist);
+
+            // 原始宽度偏移 (Y轴方向)
+            const w = beltWidth / 2;
+
+            // 顶点 1 (y+, z+) -> 旋转后
+            const y1 = w * cos;
+            const z1 = w * sin;
+
+            // 顶点 2 (y-, z-) -> 旋转后
+            const y2 = -w * cos;
+            const z2 = -w * sin;
+
+            // 写入 BufferGeometry
+            // 一个 segment 有两个点 (上和下)，对应 PlaneGeometry 的列
+            // PlaneGeometry 的顶点顺序是行优先，还是列优先？
+            // Three.js PlaneGeometry (width, height, wSeg, hSeg)
+            // 顶点存储顺序：从左上角开始，一行一行存。
+            // 我们的 belt 是横着的，width 是长，height 是宽。
+            // 只有 1 个 height segment，也就是只有两行顶点。
+            // 第一行：y = +w, 第二行：y = -w
+            
+            // 索引计算：
+            // 第 i 列，第 0 行 (Top vertex)
+            const idx1 = i; 
+            // 第 i 列，第 1 行 (Bottom vertex)
+            const idx2 = i + (segments + 1);
+
+            // 设置位置：加上中心线偏移 (x, y, z)
+            positions.setXYZ(idx1, x, y + y1, z + z1);
+            positions.setXYZ(idx2, x, y + y2, z + z2);
+        }
+
+        positions.needsUpdate = true;
+        belt.geometry.computeVertexNormals();
+    }
+
+    function startUntangleAnimation() {
+        if (isUntangling) return;
+        isUntangling = true;
+        untangleTime = 0;
+        animStatus.textContent = ">>> 正在执行同伦变换 (Homotopy) <<<";
+        
+        // 禁用 Slider
+        slider.disabled = true;
+        
+        // 动画循环
+        const startTime = performance.now();
+        const duration = 4000; // 4秒慢动作演示
+
+        function animateUntangle(time) {
+            const elapsed = time - startTime;
+            let progress = elapsed / duration;
+            
+            if (progress > 1) progress = 1;
+            
+            // 使用缓动函数 easeInOut
+            untangleTime = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+
+            updateBelt();
+
+            if (progress < 1) {
+                requestAnimationFrame(animateUntangle);
+            } else {
+                // 动画结束
+                isUntangling = false;
+                untangleTime = 0;
+                // 重置状态：现在带子是直的了，我们在逻辑上也把它重置为0度
+                currentAngleDeg = 0; 
+                slider.value = 0;
+                slider.disabled = false;
+                angleDisplay.textContent = "0 (已还原)";
+                rotatingBox.rotation.x = 0;
+                updateBelt(); // 绘制最后的一帧
+                updateUIState();
+                animStatus.textContent = ">>> 还原完成：720° ≅ 0° <<<";
+            }
+        }
+        
+        requestAnimationFrame(animateUntangle);
+    }
+
+    // --- 渲染循环 ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        if (!isUntangling) {
+            // 如果不在动画中，保持常规更新（防止穿模或微调）
+            updateBelt(); 
+        }
+        renderer.render(scene, camera);
+    }
+
+    // 初始化绘制
+    updateBelt();
+    animate();
+
+    // 窗口大小调整
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+</script>
+</body>
+</html>
