@@ -1,41 +1,40 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>Dirac Belt Trick / 狄拉克带子实验演示</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', sans-serif; color: white; }
-        #container { width: 100vw; height: 100vh; }
-        #ui-layer {
-            position: absolute; top: 20px; left: 20px; width: 320px;
-            background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: auto;
+---
+layout: page
+title: 狄拉克带子实验演示
+permalink: /dirac-belt/
+---
+
+<style>
+    body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', sans-serif; color: white; }
+    #container { width: 100vw; height: 100vh; }
+    #ui-layer {
+        position: absolute; top: 20px; left: 20px; width: 320px;
+        background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: auto;
+    }
+    h1 { margin: 0 0 10px 0; font-size: 18px; color: #4db8ff; }
+    p { font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 15px; }
+    .control-group { margin-bottom: 15px; }
+    label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
+    input[type=range] { width: 100%; cursor: pointer; }
+    .btn {
+        background: #e74c3c; color: white; border: none; padding: 10px 20px;
+        width: 100%; border-radius: 4px; cursor: pointer; font-size: 14px;
+        transition: background 0.3s;
+    }
+    .btn:disabled { background: #555; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { background: #ff6b6b; }
+    .status { font-family: monospace; color: #0f0; margin-top: 5px; font-size: 12px; }
+    #note { margin-top: 10px; font-size: 11px; color: #888; font-style: italic; border-top: 1px solid #444; padding-top: 10px;}
+</style>
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
-        h1 { margin: 0 0 10px 0; font-size: 18px; color: #4db8ff; }
-        p { font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 15px; }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
-        input[type=range] { width: 100%; cursor: pointer; }
-        .btn {
-            background: #e74c3c; color: white; border: none; padding: 10px 20px;
-            width: 100%; border-radius: 4px; cursor: pointer; font-size: 14px;
-            transition: background 0.3s;
-        }
-        .btn:disabled { background: #555; cursor: not-allowed; }
-        .btn:hover:not(:disabled) { background: #ff6b6b; }
-        .status { font-family: monospace; color: #0f0; margin-top: 5px; font-size: 12px; }
-        #note { margin-top: 10px; font-size: 11px; color: #888; font-style: italic; border-top: 1px solid #444; padding-top: 10px;}
-    </style>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
-</head>
-<body>
+    }
+</script>
 
 <div id="ui-layer">
     <h1>Dirac Belt Trick (狄拉克带子)</h1>
@@ -407,5 +406,3 @@
     });
 
 </script>
-</body>
-</html>
