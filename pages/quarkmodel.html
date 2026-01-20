@@ -4,162 +4,706 @@ title: 杨图实验室（夸克模型）
 permalink: /quark-model/
 ---
 
-<!-- 轻量示例：React + Tailwind CDN（在布局里已包含 head/body，这里只放内容） -->
+<!-- 依赖放在内容区，避免与布局 head 冲突 -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<div class="bg-slate-50 text-slate-800 p-4 sm:p-8 rounded-xl shadow-xl border border-slate-200">
-  <div id="root"></div>
-</div>
+<div class="bg-slate-50 text-slate-800">
+    <div id="root"></div>
 
-<script type="text/babel">
-const quarks = [
-  { name: 'u', charge: '+2/3', color: 'red' },
-  { name: 'd', charge: '-1/3', color: 'green' },
-  { name: 's', charge: '-1/3', color: 'blue' },
-  { name: 'c', charge: '+2/3', color: 'purple' },
-  { name: 'b', charge: '-1/3', color: 'orange' },
-  { name: 't', charge: '+2/3', color: 'teal' },
-];
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
 
-const colors = ['red', 'green', 'blue'];
+        // --- 图标组件 (SVG) ---
+        // 修复：将 class 属性改为 className 以符合 React 规范
+        const IconBase = ({ children, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
 
-function colorClass(c) {
-  return {
-    red: 'bg-red-500',
-    green: 'bg-green-500',
-    blue: 'bg-blue-500',
-    purple: 'bg-purple-500',
-    orange: 'bg-orange-500',
-    teal: 'bg-teal-500',
-  }[c] || 'bg-slate-500';
-}
+        const Settings = ({ className }) => <IconBase className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase>;
+        const RefreshCw = ({ className }) => <IconBase className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></IconBase>;
+        const RotateCcw = ({ className }) => <IconBase className={className}><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></IconBase>;
+        const Calculator = ({ className }) => <IconBase className={className}><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconBase>;
+        const Info = ({ className }) => <IconBase className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></IconBase>;
+        const CheckCircle = ({ className }) => <IconBase className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></IconBase>;
+        const AlertTriangle = ({ className }) => <IconBase className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></IconBase>;
+        const XCircle = ({ className }) => <IconBase className={className}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></IconBase>;
+        const Atom = ({ className }) => <IconBase className={className}><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></IconBase>;
+        const Zap = ({ className }) => <IconBase className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></IconBase>;
+        const Layers = ({ className }) => <IconBase className={className}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></IconBase>;
+        const ArrowRight = ({ className }) => <IconBase className={className}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></IconBase>;
 
-const Pill = ({ label, color = 'slate' }) => (
-  <span class={`inline-flex items-center px-2 py-1 text-xs font-semibold text-white rounded-full ${colorClass(color)}`}>
-    {label}
-  </span>
-);
 
-const Selector = ({ title, options, onSelect, selected }) => (
-  <div class="p-3 border rounded-lg bg-white shadow-sm">
-    <div class="font-semibold mb-2 text-sm">{title}</div>
-    <div class="flex flex-wrap gap-2">
-      {options.map((o, idx) => (
-        <button
-          key={idx}
-          onClick={() => onSelect(o)}
-          class={`px-3 py-1 rounded-lg border text-sm transition ${
-            selected === o ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 hover:bg-slate-100'
-          }`}
-        >
-          {o.label || o.name}
-        </button>
-      ))}
-    </div>
-  </div>
-);
+        // --- 数学工具函数 ---
 
-const MesonBuilder = () => {
-  const [q, setQ] = React.useState(quarks[0]);
-  const [antiColor, setAntiColor] = React.useState('red');
+        const calculateHooks = (partition) => {
+            const hooks = {};
+            partition.forEach((rowLen, i) => {
+                for (let j = 0; j < rowLen; j++) {
+                    let right = rowLen - j - 1;
+                    let down = 0;
+                    for (let k = i + 1; k < partition.length; k++) {
+                        if (partition[k] > j) down++;
+                    }
+                    hooks[`${i},${j}`] = right + down + 1;
+                }
+            });
+            return hooks;
+        };
 
-  return (
-    <div class="space-y-3">
-      <Selector
-        title="选择夸克"
-        options={quarks}
-        selected={q}
-        onSelect={setQ}
-      />
-      <Selector
-        title="选择反色"
-        options={colors.map(c => ({ label: `反${c}`, value: c }))}
-        selected={antiColor}
-        onSelect={o => setAntiColor(o.value)}
-      />
-      <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-        <div class="text-sm text-slate-600 mb-2">Meson = 夸克 + 反夸克</div>
-        <div class="flex items-center gap-2">
-          <Pill label={`q: ${q.name} (${q.charge})`} color={q.color} />
-          <span class="text-lg font-bold">+</span>
-          <Pill label={`反色: ${antiColor}`} color={antiColor} />
-        </div>
-      </div>
-    </div>
-  );
-};
+        const calculateDimension = (n, hooks) => {
+            if (n === 0) return "1";
+            try {
+                let factorial = BigInt(1);
+                for (let i = 1; i <= n; i++) factorial *= BigInt(i);
+                let denominator = BigInt(1);
+                Object.values(hooks).forEach(h => { denominator *= BigInt(h); });
+                return (factorial / denominator).toString();
+            } catch (e) { return "数值过大"; }
+        };
 
-const BaryonBuilder = () => {
-  const [selected, setSelected] = React.useState([quarks[0], quarks[1], quarks[2]]);
-  const totalCharge = selected.reduce((acc, q) => acc + (q.charge.startsWith('+') ? 2/3 : -1/3), 0);
+        const calculateSUDimension = (partition, N, hooks) => {
+            if (partition.length > N) return "0";
+            try {
+                let numerator = BigInt(1);
+                let denominator = BigInt(1);
+                partition.forEach((rowLen, i) => {
+                    for (let j = 0; j < rowLen; j++) {
+                        let term = BigInt(N + j - i);
+                        numerator *= term;
+                        let hook = hooks[`${i},${j}`];
+                        denominator *= BigInt(hook);
+                    }
+                });
+                if (denominator === BigInt(0)) return "错误";
+                return (numerator / denominator).toString();
+            } catch (e) { return "数值过大"; }
+        };
 
-  const update = (index, q) => {
-    const next = [...selected];
-    next[index] = q;
-    setSelected(next);
-  };
+        const generateSYTs = (partition) => {
+            const n = partition.reduce((a, b) => a + b, 0);
+            const results = [];
+            const current = {};
+            
+            const solve = (val) => {
+                if (val > n) {
+                    results.push({ ...current });
+                    return;
+                }
 
-  return (
-    <div class="space-y-3">
-      {[0,1,2].map(i => (
-        <Selector
-          key={i}
-          title={`夸克 ${i+1}`}
-          options={quarks}
-          selected={selected[i]}
-          onSelect={q => update(i, q)}
-        />
-      ))}
-      <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-        <div class="text-sm text-slate-600 mb-2">Baryon = 三个夸克</div>
-        <div class="flex flex-wrap gap-2 mb-2">
-          {selected.map((q, idx) => (
-            <Pill key={idx} label={`${q.name} (${q.charge})`} color={q.color} />
-          ))}
-        </div>
-        <div class="text-sm font-semibold text-amber-700">总电荷 ≈ {totalCharge.toFixed(2)}e</div>
-      </div>
-    </div>
-  );
-};
+                for (let r = 0; r < partition.length; r++) {
+                    for (let c = 0; c < partition[r]; c++) {
+                        if (current[`${r},${c}`] === undefined) {
+                            let valid = true;
+                            if (c > 0 && current[`${r},${c-1}`] === undefined) valid = false;
+                            if (r > 0 && current[`${r-1},${c}`] === undefined) valid = false;
+                            
+                            if (valid) {
+                                current[`${r},${c}`] = val;
+                                solve(val + 1);
+                                delete current[`${r},${c}`];
+                            }
+                        }
+                    }
+                }
+            };
 
-const App = () => {
-  const [mode, setMode] = React.useState('meson');
-  return (
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-xl font-bold text-slate-800">杨图实验室 (Young Tableau Lab)</div>
-          <p class="text-slate-600 text-sm">快速构建 Meson / Baryon，感受颜色与风味组合。</p>
-        </div>
-        <div class="flex gap-2">
-          <button
-            class={`px-3 py-1.5 rounded-lg border text-sm ${mode === 'meson' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white'}`}
-            onClick={() => setMode('meson')}
-          >
-            Meson
-          </button>
-          <button
-            class={`px-3 py-1.5 rounded-lg border text-sm ${mode === 'baryon' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white'}`}
-            onClick={() => setMode('baryon')}
-          >
-            Baryon
-          </button>
-        </div>
-      </div>
+            solve(1);
+            return results;
+        };
 
-      {mode === 'meson' ? <MesonBuilder /> : <BaryonBuilder />}
+        // --- 物理/夸克模型工具函数 ---
 
-      <div class="text-xs text-slate-500 leading-relaxed">
-        提示：此处为教学示意，未涉及群论的完整杨图展开；仅展示夸克风味、电荷与颜色的简单组合关系。
-      </div>
-    </div>
-  );
-};
+        const QUARK_NUMBERS = {
+            1: { label: 'u', I3: 0.5, Y: 1/3 },
+            2: { label: 'd', I3: -0.5, Y: 1/3 },
+            3: { label: 's', I3: 0, Y: -2/3 },
+        };
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
-</script>
+        const PARTICLE_NAMES = {
+            // Baryon Octet (2,1)
+            "0.5,1": "p", "-0.5,1": "n", "0,0_1": "Λ", "0,0_2": "Σ⁰", "1,0": "Σ⁺", "-1,0": "Σ⁻", "0.5,-1": "Ξ⁰", "-0.5,-1": "Ξ⁻",
+            // Baryon Decuplet (3)
+            "1.5,1": "Δ⁺⁺", "0.5,1_dec": "Δ⁺", "-0.5,1_dec": "Δ⁰", "-1.5,1": "Δ⁻", "1,0_dec": "Σ*⁺", "0,0_dec": "Σ*⁰", "-1,0_dec": "Σ*⁻", "0.5,-1_dec": "Ξ*⁰", "-0.5,-1_dec": "Ξ*⁻", "0,-2": "Ω⁻",
+        };
+
+        const generateSSYTs = (partition, maxVal) => {
+            const results = [];
+            const shape = partition;
+            const current = {};
+
+            const isValid = (r, c, val, filling) => {
+                if (c > 0) {
+                    const left = filling[`${r},${c-1}`];
+                    if (val < left) return false;
+                }
+                if (r > 0) {
+                    const up = filling[`${r-1},${c}`];
+                    if (val <= up) return false;
+                }
+                return true;
+            };
+
+            const solve = (cellIndex) => {
+                let r = 0, c = 0, count = 0;
+                let found = false;
+                for (let i = 0; i < shape.length; i++) {
+                    for (let j = 0; j < shape[i]; j++) {
+                        if (count === cellIndex) { r = i; c = j; found = true; break; }
+                        count++;
+                    }
+                    if (found) break;
+                }
+
+                if (!found) { results.push({ ...current }); return; }
+
+                for (let v = 1; v <= maxVal; v++) {
+                    if (isValid(r, c, v, current)) {
+                        current[`${r},${c}`] = v;
+                        solve(cellIndex + 1);
+                        delete current[`${r},${c}`];
+                    }
+                }
+            };
+
+            solve(0);
+            return results;
+        };
+
+        const calculateQuantumNumbers = (filling) => {
+            let totalI3 = 0;
+            let totalY = 0;
+            Object.values(filling).forEach(v => {
+                const q = QUARK_NUMBERS[v];
+                if (q) { totalI3 += q.I3; totalY += q.Y; }
+            });
+            return { I3: totalI3, Y: totalY };
+        };
+
+        // --- 构造过程组件 ---
+
+        const ConstructionStep = ({ label, shapes, operator = "⊕" }) => (
+            <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg border border-slate-100 mb-4 overflow-x-auto">
+                <div className="text-sm font-bold text-slate-500 whitespace-nowrap w-24 flex-shrink-0">{label}</div>
+                <div className="flex items-center space-x-3 flex-shrink-0">
+                    {shapes.map((shape, idx) => (
+                        <React.Fragment key={idx}>
+                            <div className="flex flex-col space-y-0.5">
+                                {shape.part.map((row, r) => (
+                                    <div key={r} className="flex space-x-0.5">
+                                        {Array.from({length: row}).map((_, c) => (
+                                            <div key={c} className={`w-6 h-6 border flex items-center justify-center text-[10px] ${
+                                                shape.highlight ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-slate-300 text-slate-400'
+                                            }`}>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                                <div className="text-[10px] text-center font-mono font-bold mt-1 text-slate-600">
+                                    {shape.dim ? <span className={shape.color || ""}><b>{shape.dim}</b></span> : ""}
+                                </div>
+                            </div>
+                            {idx < shapes.length - 1 && (
+                                <div className="text-slate-400 font-bold px-2">{operator}</div>
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const MesonConstruction = () => (
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h4 className="font-bold text-blue-900 mb-2">介子 (Meson) = q + q̄</h4>
+                    <p className="text-sm text-blue-700">
+                        在 SU(3) 中，夸克是基础表示 <b className="font-mono">3</b> (□)，反夸克是共轭表示 <b className="font-mono">3̄</b> (日)。
+                        <br/>分解公式：<span className="font-mono font-bold">3 ⊗ 3̄ = 8 ⊕ 1</span>
+                    </p>
+                </div>
+
+                <div>
+                    <h5 className="text-xs font-bold text-slate-400 uppercase mb-2">构造步骤</h5>
+                    <ConstructionStep 
+                        label="Step 1: Tensor Product" 
+                        operator="⊗"
+                        shapes={[
+                            { part: [1], dim: "3", color: "text-blue-600" },
+                            { part: [1,1], dim: "3̄", color: "text-rose-600" }
+                        ]} 
+                    />
+                    <div className="flex justify-center my-2 text-slate-300"><ArrowRight className="w-5 h-5 transform rotate-90" /></div>
+                    <ConstructionStep 
+                        label="Result: Decomposition" 
+                        operator="⊕"
+                        shapes={[
+                            { part: [2,1], dim: "8 (Octet)", highlight: true, color: "text-indigo-600" },
+                            { part: [1,1,1], dim: "1 (Singlet)", color: "text-slate-500" }
+                        ]} 
+                    />
+                </div>
+                <div className="text-xs text-slate-500 italic">
+                    * 注：[1,1,1] 在 SU(3) 中对应一列填满，为标量（Singlet），维度为 1。
+                </div>
+            </div>
+        );
+
+        const BaryonConstruction = () => (
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                    <h4 className="font-bold text-purple-900 mb-2">重子 (Baryon) = q + q + q</h4>
+                    <p className="text-sm text-purple-700">
+                        三个夸克的组合。
+                        <br/>分解公式：<span className="font-mono font-bold">3 ⊗ 3 ⊗ 3 = 10 ⊕ 8 ⊕ 8 ⊕ 1</span>
+                    </p>
+                </div>
+
+                <div>
+                    <h5 className="text-xs font-bold text-slate-400 uppercase mb-2">构造步骤 (Littlewood-Richardson Rule)</h5>
+                    
+                    <ConstructionStep 
+                        label="Step 1: q ⊗ q" 
+                        operator="="
+                        shapes={[
+                            { part: [1], dim: "3" },
+                            { part: [1], dim: "3" },
+                            { part: [2], dim: "6 (Sym)" },
+                            { part: [1,1], dim: "3̄ (Anti)" }
+                        ]} 
+                    />
+                    
+                    <div className="flex justify-center my-2 text-slate-300"><ArrowRight className="w-5 h-5 transform rotate-90" /></div>
+
+                    <ConstructionStep 
+                        label="Step 2: (6 ⊕ 3̄) ⊗ q" 
+                        operator="⊕"
+                        shapes={[
+                            { part: [3], dim: "10 (Decuplet)", highlight: true, color: "text-rose-600" },
+                            { part: [2,1], dim: "8 (Octet)", highlight: true, color: "text-indigo-600" },
+                            { part: [2,1], dim: "8 (Octet)", highlight: true, color: "text-indigo-600" },
+                            { part: [1,1,1], dim: "1 (Singlet)", color: "text-slate-500" }
+                        ]} 
+                    />
+                </div>
+                <div className="bg-slate-50 p-3 rounded text-xs text-slate-600">
+                    <ul className="list-disc list-inside space-y-1">
+                        <li><b className="text-rose-600">10 (Decuplet)</b>: 完全对称态 (如 Δ++, Ω-)，形状 [3]。</li>
+                        <li><b className="text-indigo-600">8 (Octet)</b>: 混合对称态 (如 p, n)，形状 [2,1]。出现两次对应 <span className="font-mono">MS-1, MS-2</span>。</li>
+                        <li><b className="text-slate-500">1 (Singlet)</b>: 完全反对称态 (Λ(1405)?)，形状 [1,1,1]。</li>
+                    </ul>
+                </div>
+            </div>
+        );
+
+        // --- 主组件 ---
+
+        const YoungTableauLab = () => {
+            const [activeTab, setActiveTab] = useState('lab'); 
+            const [constructionType, setConstructionType] = useState('baryon'); 
+            
+            const [inputStr, setInputStr] = useState("2, 1"); 
+            const [partition, setPartition] = useState([2, 1]);
+            const [suN, setSuN] = useState(3); 
+            const [fillings, setFillings] = useState({});
+            const [showHooks, setShowHooks] = useState(false);
+            const [validationResult, setValidationResult] = useState(null);
+            const [weightStates, setWeightStates] = useState(null);
+            
+            // 初始化
+            useEffect(() => {
+                const parts = inputStr.split(/[,，\s]+/)
+                .map(s => parseInt(s, 10))
+                .filter(n => !isNaN(n) && n > 0);
+                const sortedParts = [...parts].sort((a, b) => b - a);
+                
+                if (JSON.stringify(sortedParts) !== JSON.stringify(partition)) {
+                    setPartition(sortedParts);
+                    setFillings({});
+                    setValidationResult(null);
+                    setWeightStates(null); 
+                }
+            }, [inputStr]);
+
+            // 计算属性
+            const totalBoxes = useMemo(() => partition.reduce((a, b) => a + b, 0), [partition]);
+            const hooks = useMemo(() => calculateHooks(partition), [partition]);
+            const snDimension = useMemo(() => calculateDimension(totalBoxes, hooks), [totalBoxes, hooks]);
+            const suDimension = useMemo(() => calculateSUDimension(partition, suN, hooks), [partition, suN, hooks]);
+            const syts = useMemo(() => totalBoxes <= 8 ? generateSYTs(partition) : [], [partition, totalBoxes]);
+            
+            const conjugatePartition = useMemo(() => {
+                if (partition.length === 0) return [];
+                const conj = [];
+                for (let col = 0; col < partition[0]; col++) {
+                    let count = 0;
+                    for (let row = 0; row < partition.length; row++) {
+                        if (partition[row] > col) count++;
+                    }
+                    conj.push(count);
+                }
+                return conj;
+            }, [partition]);
+
+            const handleCellChange = (r, c, value) => {
+                const val = parseInt(value, 10);
+                const key = `${r},${c}`;
+                const newFillings = { ...fillings };
+                if (isNaN(val)) delete newFillings[key];
+                else newFillings[key] = val;
+                setFillings(newFillings);
+                validateTableau(newFillings);
+            };
+
+            const validateTableau = (currentFillings) => {
+                let isStandard = true; 
+                let isSemiStandard = true; 
+                const values = Object.values(currentFillings).sort((a, b) => a - b);
+                const filledCount = Object.keys(currentFillings).length;
+
+                if (filledCount < totalBoxes) {
+                    setValidationResult({ status: 'incomplete', msg: "尚未填满" });
+                    return;
+                }
+
+                for (let i = 0; i < totalBoxes; i++) if (values[i] !== i + 1) isStandard = false;
+
+                for (let r = 0; r < partition.length; r++) {
+                    for (let c = 0; c < partition[r]; c++) {
+                        const val = currentFillings[`${r},${c}`];
+                        if (val === undefined) continue;
+                        if (c + 1 < partition[r]) {
+                            const rightVal = currentFillings[`${r},${c + 1}`];
+                            if (rightVal !== undefined) {
+                                if (val >= rightVal) isStandard = false; 
+                                if (val > rightVal) isSemiStandard = false; 
+                            }
+                        }
+                        if (r + 1 < partition.length && c < partition[r + 1]) {
+                            const downVal = currentFillings[`${r + 1},${c}`];
+                            if (downVal !== undefined) {
+                                if (val >= downVal) { isStandard = false; isSemiStandard = false; }
+                            }
+                        }
+                    }
+                }
+
+                if (isStandard) setValidationResult({ status: 'success', msg: "标准杨表 (SYT)" });
+                else if (isSemiStandard) setValidationResult({ status: 'warning', msg: "半标准杨表 (SSYT)" });
+                else setValidationResult({ status: 'error', msg: "规则违例" });
+            };
+
+            const generateWeightDiagram = () => {
+                if (suN !== 3) {
+                    alert("权图生成目前仅支持 SU(3) (N=3)");
+                    return;
+                }
+                const ssyts = generateSSYTs(partition, 3);
+                const points = {};
+                ssyts.forEach(tab => {
+                    const { I3, Y } = calculateQuantumNumbers(tab);
+                    const key = `${I3.toFixed(2)},${Y.toFixed(2)}`;
+                    if (!points[key]) points[key] = { I3, Y, count: 0, examples: [] };
+                    points[key].count++;
+                    if (points[key].examples.length < 3) points[key].examples.push(tab);
+                });
+                setWeightStates(Object.values(points));
+            };
+
+            const renderWeightSVG = () => {
+                if (!weightStates) return null;
+                const scaleX = 80;
+                const scaleY = 80;
+                const offsetX = 200;
+                const offsetY = 200;
+
+                const getLabel = (I3, Y, count, idx) => {
+                    const k = `${parseFloat(I3)},${parseFloat(Y)}`;
+                    const k_multi = count > 1 ? `${k}_${idx+1}` : k;
+                    if (JSON.stringify(partition) === "[2,1]" && PARTICLE_NAMES[k_multi]) return PARTICLE_NAMES[k_multi];
+                    if (JSON.stringify(partition) === "[3]" && PARTICLE_NAMES[k]) return PARTICLE_NAMES[k];
+                    return null;
+                };
+
+                return (
+                    <svg width="400" height="400" className="bg-slate-50 rounded-lg border border-slate-200 mx-auto">
+                        <defs>
+                            <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8" />
+                            </marker>
+                        </defs>
+                        <line x1="20" y1={offsetY} x2="380" y2={offsetY} stroke="#cbd5e1" strokeWidth="1" markerEnd="url(#arrow)" />
+                        <text x="370" y={offsetY + 20} className="text-xs text-slate-500 font-mono">I3</text>
+                        <line x1={offsetX} y1="380" x2={offsetX} y2="20" stroke="#cbd5e1" strokeWidth="1" markerEnd="url(#arrow)" />
+                        <text x={offsetX + 10} y="30" className="text-xs text-slate-500 font-mono">Y</text>
+                        {weightStates.map((pt, i) => {
+                            const x = offsetX + pt.I3 * scaleX;
+                            const y = offsetY - pt.Y * scaleY; 
+                            return (
+                                <g key={i} className="group cursor-pointer">
+                                    {Array.from({length: pt.count}).map((_, idx) => (
+                                        <circle key={idx} cx={x} cy={y} r={6 + idx * 4} fill={idx === 0 ? "#6366f1" : "none"} stroke="#6366f1" strokeWidth="2" opacity={0.6} />
+                                    ))}
+                                    {pt.count === 1 ? (
+                                        <text x={x} y={y - 12} textAnchor="middle" className="text-xs font-bold fill-slate-700 pointer-events-none">{getLabel(pt.I3, pt.Y, pt.count, 0)}</text>
+                                    ) : (
+                                        <text x={x} y={y - 15} textAnchor="middle" className="text-xs font-bold fill-slate-700 pointer-events-none">
+                                            {JSON.stringify(partition) === "[2,1]" && pt.I3 === 0 && pt.Y === 0 ? "Λ, Σ⁰" : ""}
+                                        </text>
+                                    )}
+                                    <title>I3: {pt.I3.toFixed(2)}, Y: {pt.Y.toFixed(2)}, Deg: {pt.count}</title>
+                                </g>
+                            );
+                        })}
+                    </svg>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+                    <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+                        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white font-bold text-lg shadow-sm">杨</div>
+                                <h1 className="text-xl font-bold tracking-tight text-slate-900">杨图实验室 <span className="text-slate-400 font-normal text-sm ml-1">Quark Model Edition</span></h1>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm">
+                                <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">SU({suN}) Physics</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        
+                        {/* Left Panel */}
+                        <div className="lg:col-span-4 space-y-6">
+                            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center">
+                                    <Settings className="w-4 h-4 mr-2" />
+                                    模型设定
+                                </h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">整数分拆 (Partition)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={inputStr}
+                                                onChange={(e) => setInputStr(e.target.value)}
+                                                placeholder="例如: 2, 1"
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-lg"
+                                            />
+                                            <div className="absolute right-3 top-3 text-xs text-slate-400 font-mono bg-white px-1">λ = ({partition.join(', ')})</div>
+                                        </div>
+                                        <div className="flex gap-2 mt-2">
+                                            <button onClick={() => setInputStr("2, 1")} className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">八重态 (2,1)</button>
+                                            <button onClick={() => setInputStr("3")} className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-600">十重态 (3)</button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">对称群 (SU(N))</label>
+                                        <input
+                                            type="number"
+                                            min="2"
+                                            value={suN}
+                                            onChange={(e) => setSuN(parseInt(e.target.value) || 2)}
+                                            className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center">
+                                    <Calculator className="w-4 h-4 mr-2" />
+                                    维度与重数
+                                </h2>
+                                <div className="space-y-4">
+                                    
+                                    <div className="flex flex-col py-2 border-b border-slate-100">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-slate-600 flex items-center">S<sub>n</sub> 维度 (重数)</span>
+                                            <span className="font-mono text-lg font-bold text-emerald-600">{snDimension}</span>
+                                        </div>
+                                        {syts.length > 0 && syts.length < 20 && (
+                                            <div className="bg-slate-50 rounded-lg p-3 mt-2">
+                                                <p className="text-xs text-slate-500 mb-2 flex items-center">
+                                                    <Info className="w-3 h-3 mr-1"/>
+                                                    {snDimension > 1 ? `该形状对应 ${snDimension} 个不同的标准杨表，即物理上的重数。` : "唯一标准形式。"}
+                                                </p>
+                                                <div className="flex flex-wrap gap-3">
+                                                    {syts.map((syt, idx) => (
+                                                        <div key={idx} className="flex flex-col border border-slate-200 bg-white p-1 shadow-sm">
+                                                            {partition.map((rowLen, r) => (
+                                                                <div key={r} className="flex">
+                                                                    {Array.from({length: rowLen}).map((_, c) => (
+                                                                        <div key={c} className="w-6 h-6 border border-slate-200 flex items-center justify-center text-xs font-mono font-bold text-slate-700 -ml-[1px] -mt-[1px]">
+                                                                            {syt[`${r},${c}`]}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-2">
+                                        <span className="text-slate-600">SU({suN}) 维度 (态数)</span>
+                                        <span className="font-mono text-lg font-bold text-indigo-600">{suDimension}</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {suN === 3 && (
+                                <section className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
+                                    <Atom className="absolute -right-4 -bottom-4 w-32 h-32 opacity-20" />
+                                    <h2 className="text-sm font-semibold text-indigo-100 uppercase tracking-wider mb-3 relative z-10">夸克模型实验室</h2>
+                                    <button 
+                                        onClick={generateWeightDiagram}
+                                        className="w-full py-2 bg-white text-indigo-700 font-bold rounded-lg shadow hover:bg-indigo-50 transition-colors relative z-10 flex items-center justify-center"
+                                    >
+                                        <Zap className="w-4 h-4 mr-2" />
+                                        生成 SU(3) 权图
+                                    </button>
+                                </section>
+                            )}
+                        </div>
+
+                        {/* Right Panel */}
+                        <div className="lg:col-span-8 space-y-6">
+                            
+                            {/* Tabs */}
+                            <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-4 shadow-sm">
+                                <button 
+                                    onClick={() => setActiveTab('lab')}
+                                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'lab' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    杨图编辑器 (Editor)
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('construction')}
+                                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'construction' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    构造过程 (Construction)
+                                </button>
+                            </div>
+
+                            {activeTab === 'lab' && (
+                                <React.Fragment>
+                                    <div className="bg-white rounded-b-xl shadow-sm border border-t-0 border-slate-200 p-8 flex flex-col relative animate-in slide-in-from-bottom-2 duration-300">
+                                        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center">
+                                            杨图结构 (Young Diagram)
+                                            {validationResult && (
+                                            <span className={`ml-3 px-3 py-1 rounded-full text-xs font-medium ${
+                                                validationResult.status === 'success' ? 'bg-emerald-100 text-emerald-700' :
+                                                validationResult.status === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                                            }`}>{validationResult.msg}</span>
+                                            )}
+                                        </h3>
+                                        
+                                        <div className="flex-1 overflow-auto p-4 flex items-start justify-center bg-slate-50/50 rounded-lg border border-slate-100 border-dashed min-h-[200px]">
+                                            <div className="flex flex-col items-start space-y-0 shadow-sm ring-1 ring-slate-900/5 bg-white p-1">
+                                                {partition.map((rowLen, rowIndex) => (
+                                                <div key={rowIndex} className="flex">
+                                                    {Array.from({ length: rowLen }).map((_, colIndex) => {
+                                                    const key = `${rowIndex},${colIndex}`;
+                                                    const userVal = fillings[key] !== undefined ? fillings[key] : '';
+                                                    return (
+                                                        <div key={key} className="w-12 h-12 border border-slate-300 -ml-[1px] -mt-[1px] flex items-center justify-center relative bg-white">
+                                                        <input
+                                                            type="text"
+                                                            value={userVal}
+                                                            onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                                                            className="w-full h-full text-center outline-none font-mono text-lg font-medium focus:bg-indigo-50"
+                                                        />
+                                                        </div>
+                                                    );
+                                                    })}
+                                                </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 text-xs text-slate-400 flex justify-between">
+                                            <span>手动填入数字 (1-{suN}) 以验证杨表规则</span>
+                                            <button onClick={() => setFillings({})} className="hover:text-indigo-600"><RotateCcw className="w-3 h-3 inline mr-1"/>清空</button>
+                                        </div>
+                                    </div>
+
+                                    {suN === 3 && weightStates && (
+                                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex flex-col relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center">
+                                                八重态/十重态 权图 (I3 - Y Plot)
+                                            </h3>
+                                            <p className="text-xs text-slate-500 mb-6">
+                                                基于形状 {partition.join(', ')} 的所有半标准杨表生成的态空间分布 (Isospin vs Hypercharge)。
+                                            </p>
+                                            
+                                            <div className="flex justify-center bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                                {renderWeightSVG()}
+                                            </div>
+                                            
+                                            <div className="mt-4 grid grid-cols-2 gap-4 text-xs text-slate-500">
+                                                <div className="bg-slate-50 p-3 rounded">
+                                                    <strong className="block text-slate-700 mb-1">物理意义:</strong>
+                                                    <ul className="list-disc list-inside space-y-1">
+                                                        <li><strong>横轴 (I3)</strong>: 同位旋 z 分量</li>
+                                                        <li><strong>纵轴 (Y)</strong>: 超荷 (B + S)</li>
+                                                        <li><strong>点</strong>: 表示粒子态 (如 p, n, Λ)</li>
+                                                        <li><strong>同心圆</strong>: 表示简并度 (态的重数)</li>
+                                                    </ul>
+                                                </div>
+                                                <div className="bg-slate-50 p-3 rounded">
+                                                    <strong className="block text-slate-700 mb-1">夸克组成 (SSYT):</strong>
+                                                    <div className="flex gap-2 font-mono mt-1">
+                                                        <span className="px-2 py-1 bg-white border rounded">1=u</span>
+                                                        <span className="px-2 py-1 bg-white border rounded">2=d</span>
+                                                        <span className="px-2 py-1 bg-white border rounded">3=s</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </React.Fragment>
+                            )}
+
+                            {activeTab === 'construction' && (
+                                <div className="bg-white rounded-b-xl shadow-sm border border-t-0 border-slate-200 p-8 flex flex-col min-h-[500px] animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="flex space-x-4 mb-6">
+                                        <button 
+                                            onClick={() => setConstructionType('baryon')}
+                                            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-bold flex items-center justify-center transition-all ${constructionType === 'baryon' ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                        >
+                                            <Layers className="w-4 h-4 mr-2" />
+                                            重子 (qqq)
+                                        </button>
+                                        <button 
+                                            onClick={() => setConstructionType('meson')}
+                                            className={`flex-1 py-3 px-4 rounded-lg border text-sm font-bold flex items-center justify-center transition-all ${constructionType === 'meson' ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                        >
+                                            <RefreshCw className="w-4 h-4 mr-2" />
+                                            介子 (q̄q)
+                                        </button>
+                                    </div>
+
+                                    <div className="flex-1">
+                                        {constructionType === 'meson' ? <MesonConstruction /> : <BaryonConstruction />}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<YoungTableauLab />);
+    </script>
